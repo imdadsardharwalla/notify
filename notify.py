@@ -11,14 +11,15 @@ def get_timestamp():
 
 class TelegramNotify:
 
-    def __init__(self):
+    def __init__(self, name: str):
         '''Create and initialise internal class variables.'''
         self._tokens = {}
         self._IDs = {}
         self._ID = None
         self._token = None
+        self._name = name
 
-    def print_info(self, text):
+    def print_info(self, text: str):
         '''Print a line of information to stdout.'''
         print(f'{get_timestamp()}: Info: {text}')
 
@@ -32,8 +33,8 @@ class TelegramNotify:
         with Path(recipients_path).open('r') as f:
             self._IDs = json.load(f)
 
-    def print_notification_info(self, success, text,
-                                error_msg='Error not specified'):
+    def print_notification_info(self, success: bool, text: str,
+                                error_msg: str = 'Error not specified') -> bool:
         '''Print an info line to stdout about the success of the notification. Returns success variable.'''
         print(f'{get_timestamp()}: ', end='')
         if success:
@@ -44,35 +45,36 @@ class TelegramNotify:
 
         return success
 
-    def set_pathway(self, bot_name, recipient_name):
+    def set_pathway(self, bot_name: str, recipient_name: str):
         '''Set the token and ID to be used by the send() function.'''
         self._token = self._tokens[bot_name]
         self._ID = self._IDs[recipient_name]
 
-    def send(self, text):
+    def send(self, text: str) -> bool:
         '''Send a notification using the set pathway. Returns True/False on success/failure.'''
+        notification_text = f'{self._name}: {text}'
 
         # If no token has been set, print an error
         if self._token is None:
             return self.print_notification_info(
                 False,
-                text,
+                notification_text,
                 'No bot token was provided. Did you call set_pathway()?')
 
         # If no ID has been set, print an error
         if self._ID is None:
             return self.print_notification_info(
                 False,
-                text,
+                notification_text,
                 'No recipient ID was provided. Did you call set_pathway()?')
 
         url = f"https://api.telegram.org/bot{self._token}"
-        params = {'chat_id': self._ID, 'text': text}
+        params = {'chat_id': self._ID, 'text': notification_text}
 
         r = requests.get(url + "/sendMessage", params=params)
         return self.print_notification_info(
             r.status_code == 200,
-            text,
+            notification_text,
             f'Status code was {r.status_code}')
 
     def test_pathway(self):

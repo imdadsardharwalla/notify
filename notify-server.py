@@ -5,50 +5,16 @@ import json
 from pathlib import Path
 import requests
 
+from config import config
 from lib.urlget import URLGet
 
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-CONFIG_DIR = SCRIPT_DIR / 'config'
+# TODO all of this needs error handling
 
 
-def load_token():
-    with (CONFIG_DIR / 'token').open('r') as f:
-        token = f.readline().strip()
-
-        # Check the token does not contain invalid characters
-        allowed_chars = (
-            'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-            '0123456789-._~:/?#[]@!$&\'()*+,;=')
-
-        for char in token:
-            if char not in allowed_chars:
-                raise ValueError(f'"{token}" is not a valid token.')
-
-        # Check the token is not too short
-        if len(token) < 12:
-            raise ValueError(f'"{token}" is not a valid token.')
-
-    return token
-
-
-def load_recipients():
-    with (CONFIG_DIR / 'recipients.json').open('r') as f:
-        recipients = json.load(f)
-
-    return recipients
-
-
-def load_notifiers():
-    with (CONFIG_DIR / 'notifiers.json').open('r') as f:
-        notifiers = json.load(f)
-
-    return notifiers
-
-
-token = load_token()
-recipients = load_recipients()
-notifiers = load_notifiers()
+token = config.load_token()
+users = config.load_users()
+notifiers = config.load_notifiers()
 base_url = f'https://api.telegram.org/bot{token}'
 
 
@@ -65,6 +31,7 @@ def url_to_json(url: URLGet):
     return json_struct
 
 
+# TODO can this be replaced using params as in send_notification()?
 def build_url(stem: str, options: dict) -> str:
     options_str = ''
     if len(options) > 0:
@@ -94,7 +61,7 @@ def get_max_update_id(updates):
     return max_update_id
 
 
-def get_recipient_id(update):
+def get_id(update):
     return str(update['message']['from']['id'])
 
 
@@ -129,11 +96,12 @@ def notification_message(success: bool, text: str,
     return success
 
 
+# TODO want this to retry a few times
 def send_notification(id, text: str) -> bool:
-    params = {'chat_id': id, 'text': text}
+    params = {'chat_id': id, 'text': text, 'parse_mode': 'html'}
     r = requests.get(f'{base_url}/sendMessage', params=params)
 
-    # TODO also send recipient name
+    # TODO also send user name
     return notification_message(
         r.status_code == 200,
         text,
@@ -148,21 +116,45 @@ while True:
     updates = get_updates(offset)
     offset = get_max_update_id(updates) + 1
 
-    print(updates)
-
     for update in updates['result']:
+        # Ignore message if it has come from a bot
         if is_bot(update):
             print(f'Bots are not authorised.')
             continue
 
-        recipient_id = get_recipient_id(update)
+        # Get the ID of the sender
+        id = get_id(update)
 
-        if recipient_id not in recipients.keys():
-            print(f'{recipient_id} is not an authorised recipient.')
+        if id not in users.keys():
+            send_notification(
+                id, 'Hello! You\'re not currently authorised to communicate '
+                'with this notify server. Please speak to the admin of the '
+                f'server and ask them to add your ID ({id}) to the list of '
+                'authorised users.')
+
+            print(f'Communcation is not authorised for {id}.')
             continue
 
         message_text = get_message_text(update)
 
-        print_message(f'Message received from {recipients[recipient_id]}: {message_text}')
+        print_message(
+            f'Message received from {users[id]}: {message_text}')
 
-        send_notification(recipient_id, message_text)
+        response_text = 'some usage text here'
+
+        if message_text == '/start':
+            send_notification(id, f'Hello, {users[id]}!')
+        if message_text == '/list_all':
+            # List all notifiers
+            if len(notifiers.keys()) == 0:
+                response_text = 'No notifiers are available.'
+            else:
+                response_text = 'The available notifiers are:\n\n'
+
+                for name, data in notifiers.items():
+                    response_text += (f' - <b>{name}</b>: '
+                                      f'<i>{data["description"]}</i>\n')
+
+            send_notification(id, response_text)
+        elif message_text == '/ping':
+            send_notification(id, 'Yes, I\'m still here!')

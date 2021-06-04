@@ -11,6 +11,9 @@ from lib.urlget import URLGet
 
 # TODO all of this needs error handling
 
+# TODO should store a state as it goes so that it can restart from that
+# point after a crash. Maybe a --resume option would be a good idea
+
 
 token = config.load_token()
 users = config.load_users()

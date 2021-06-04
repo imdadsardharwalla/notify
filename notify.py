@@ -6,7 +6,7 @@ import requests
 
 def get_timestamp():
     '''Return timestamp in the following format: dd/mm/YY H:M:S'''
-    return datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    return datetime.now().strftime('%d/%m/%Y %H:%M:%S')
 
 
 class Notify:
@@ -86,10 +86,10 @@ class TelegramNotify(Notify):
                 notification_text,
                 'No recipient ID was provided. Did you call set_pathway()?')
 
-        url = f"https://api.telegram.org/bot{self._token}"
+        url = f'https://api.telegram.org/bot{self._token}'
         params = {'chat_id': self._ID, 'text': notification_text}
 
-        r = requests.get(url + "/sendMessage", params=params)
+        r = requests.get(url + '/sendMessage', params=params)
         return self.notification_message(
             r.status_code == 200,
             notification_text,

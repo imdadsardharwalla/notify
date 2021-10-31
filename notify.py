@@ -21,13 +21,13 @@ class Notify:
         '''Prints text to stdout.'''
         print(f'{get_timestamp()}: {text}')
 
-    def notification_message(self, success: bool, text: str,
+    def notification_message(self, success: bool, text: str, id: str,
                              error_msg: str = 'Error not specified') -> bool:
         '''Printa a message about the success of the notification. Returns the success variable.'''
         if success:
-            message = 'Notification sent: '
+            message = f'Notification sent -> {id}: '
         else:
-            message = f'Notification FAILED [{error_msg}]: '
+            message = f'Notification FAILED -> {id} [{error_msg}]: '
         message += f'"{text}"'
 
         self.message(message)
@@ -72,19 +72,13 @@ class TelegramNotify(Notify):
         '''Send a notification using the set pathway. Returns True/False on success/failure.'''
         notification_text = self.get_notification_text(text)
 
-        # If no token has been set, print an error
-        if self._token is None:
+        # If no token or ID has been set, print an error
+        if not self._token or not self._ID:
             return self.notification_message(
                 False,
                 notification_text,
-                'No bot token was provided. Did you call set_pathway()?')
-
-        # If no ID has been set, print an error
-        if self._ID is None:
-            return self.notification_message(
-                False,
-                notification_text,
-                'No recipient ID was provided. Did you call set_pathway()?')
+                None,
+                'Either bot token or recipient ID was empty. Did you call set_pathway()?')
 
         url = f"https://api.telegram.org/bot{self._token}"
         params = {'chat_id': self._ID, 'text': notification_text}
@@ -93,6 +87,7 @@ class TelegramNotify(Notify):
         return self.notification_message(
             r.status_code == 200,
             notification_text,
+            self._ID,
             f'Status code was {r.status_code}')
 
     def test_pathway(self):
